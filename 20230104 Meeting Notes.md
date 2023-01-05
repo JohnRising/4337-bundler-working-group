@@ -26,7 +26,7 @@ Bundler implementations are in early stages and only support private mempools. A
     - **Block hash:** Used by bundlers to simulate a UserOperation against the state at the given block. If it fails then the sender must be a spammer and should be booted.
     - **Mempool ID.** EIP-4337 supports the use of an alternate mempool that bundlers are able to opt into which is seperate from the canonical mempool.
 - Interoperability with non-Ethereum EVMs is highly desired. We want to have the same RPC - or as close to it - for other EVMs. For this reason the bundler p2p mempool should not be tightly coupled with the network mempool. A bundler mempool that is tightly coupled to the Ethereum mempool may get into problems with networks that have sequencers, reorgs, and so on.
-- All bundler implementations should pass all tests in the Infinitism test suite, but don’t necessarily need to in order to participate in the bundler mempool. Need an integration test for p2p protocol.
+- All bundler implementations should pass all tests in the Infinitism test suite. There may be specific rules that are optional because they don't break the mempool apart, just put the individual bundler at risk. Most of the rules are implicitly mandatory because different implementations will result in bundlers rejecting each other as spammers. Need an integration test for p2p protocol.
 
 # Other considerations
 
