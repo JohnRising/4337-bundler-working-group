@@ -1,6 +1,6 @@
-# Phase 0 -- Networking
+# ERC4337 -- Networking
 
-This document contains the networking specification for Bundler software.
+This document contains the networking specification of the bundler software for ERC4337. 
 
 It consists of four main sections:
 
@@ -18,7 +18,6 @@ It consists of four main sections:
   - [Transport](#transport)
   - [Encryption and identification](#encryption-and-identification)
   - [Protocol Negotiation](#protocol-negotiation)
-  - [Multiplexing](#multiplexing)
 - [Bundler interaction domains](#bundler-interaction-domains)
   - [Configuration](#configuration)
   - [MetaData](#metadata)
@@ -28,6 +27,7 @@ It consists of four main sections:
         - [`topic_1`](#topic_1)
         - [`topic_2`](#topic_2)
     - [Encodings](#encodings)
+  - [Container Specifications](#container-specs)
   - [The Req/Resp domain](#the-reqresp-domain)
     - [Protocol identification](#protocol-identification)
     - [Req/Resp interaction](#reqresp-interaction)
@@ -52,26 +52,21 @@ This section outlines the specification for the networking stack in ERC4337 bund
 
 ## Transport
 
-Even though libp2p is a multi-transport stack (designed to listen on multiple simultaneous transports and endpoints transparently),
-we hereby define a profile for basic interoperability.
-
-All implementations MUST support the TCP libp2p transport, and it MUST be enabled for both dialing and listening (i.e. outbound and inbound connections).
-The libp2p TCP transport supports listening on IPv4 and IPv6 addresses (and on multiple simultaneously).
+All implementations MUST support the TCP libp2p transport, and it MUST be enabled for both dialing and listening (i.e. outbound and inbound connections). The libp2p TCP transport supports listening on IPv4 and IPv6 addresses (and on multiple simultaneously).
 
 Bundlers must support listening on at least one of IPv4 or IPv6.
 Bundlers that do _not_ have support for listening on IPv4 SHOULD be cognizant of the potential disadvantages in terms of
 Internet-wide routability/support. Bundlers MAY choose to listen only on IPv6, but MUST be capable of dialing both IPv4 and IPv6 addresses.
 
-All listening endpoints must be publicly dialable, and thus not rely on libp2p circuit relay, AutoNAT, or AutoRelay facilities.
+All listening endpoints must be publicly dial-able, and thus not rely on libp2p circuit relay, AutoNAT, or AutoRelay facilities.
 (Usage of circuit relay, AutoNAT, or AutoRelay will be specifically re-examined soon.)
 
-Nodes operating behind a NAT, or otherwise undialable by default (e.g. container runtime, firewall, etc.),
+Nodes operating behind a NAT, or otherwise un dial-able by default (e.g. container runtime, firewall, etc.),
 MUST have their infrastructure configured to enable inbound traffic on the announced public listening endpoint.
 
 ## Encryption and identification
 
-The [Libp2p-noise](https://github.com/libp2p/specs/tree/master/noise) secure
-channel handshake with `secp256k1` identities will be used for encryption.
+The [Libp2p-noise](https://github.com/libp2p/specs/tree/master/noise) secure channel handshake with `secp256k1` identities will be used for encryption.
 
 As specified in the libp2p specification, Bundlers MUST support the `XX` handshake pattern.
 
@@ -82,10 +77,6 @@ Bundlers MUST use exact equality when negotiating protocol versions to use and M
 Bundlers MUST support [multistream-select 1.0](https://github.com/multiformats/multistream-select/)
 and MAY support [multiselect 2.0](https://github.com/libp2p/specs/pull/95) when the spec solidifies.
 Once all Bundlers have implementations for multiselect 2.0, multistream-select 1.0 MAY be phased out.
-
-## Multiplexing
-
-
 
 # Bundler interaction domains
 
@@ -142,27 +133,20 @@ These are currently under investigation and will be spec'd and released to mainn
 ### Topics and messages
 
 Topics are plain UTF-8 strings and are encoded on the wire as determined by protobuf (gossipsub messages are enveloped in protobuf messages).
-Topic strings have form: `/eth2/ForkDigestValue/Name/Encoding`.
+Topic strings have form: `/erc4337/UserOpsWithEntryPoint/Name/Encoding`.
 This defines both the type of data being sent on the topic and how the data field of the message is encoded.
 
-- `ForkDigestValue` - the lowercase hex-encoded (no "0x" prefix) bytes of `compute_fork_digest(current_fork_version, genesis_validators_root)` where
+- `UserOpsWithEntryPoint` - the lowercase hex-encoded (no "0x" prefix) bytes of `entry_point_contract_address` + `user_operation` where
     - `current_fork_version` is the fork version of the epoch of the message to be sent on the topic
     - `genesis_validators_root` is the static `Root` found in `state.genesis_validators_root`
 - `Name` - see table below
 - `Encoding` - the encoding strategy describes a specific representation of bytes that will be transmitted over the wire.
   See the [Encodings](#Encodings) section for further details.
 
-*Note*: `ForkDigestValue` is composed of values that are not known until the genesis block/state are available.
-Due to this, Bundlers SHOULD NOT subscribe to gossipsub topics until these genesis values are known.
 
 Each gossipsub [message](https://github.com/libp2p/go-libp2p-pubsub/blob/master/pb/rpc.proto#L17-L24) has a maximum size of `GOSSIP_MAX_SIZE`.
 Bundlers MUST reject (fail validation) messages that are over this size limit.
 Likewise, Bundlers MUST NOT emit or propagate messages larger than this limit.
-
-The optional `from` (1), `seqno` (3), `signature` (5) and `key` (6) protobuf fields are omitted from the message,
-since messages are identified by content, anonymous, and signed where necessary in the application layer.
-Starting from Gossipsub v1.1, Bundlers MUST enforce this by applying the `StrictNoSign`
-[signature policy](https://github.com/libp2p/specs/blob/master/pubsub/README.md#signature-policy-options).
 
 The `message-id` of a gossipsub message MUST be the following 20 byte value computed from the message data:
 * If `message.data` has a valid snappy decompression, set `message-id` to the first 20 bytes of the `SHA256` hash of
@@ -180,38 +164,74 @@ The payload is carried in the `data` field of a gossipsub message, and varies de
 
 | Name                             | Message Type              |
 |----------------------------------|---------------------------|
-| `topic_1`                        | `SignedTopic1`            |
-| `topic_2`                        | `SignedTopic2`            |
+| `UserOperationWithEntryPoint`    | ``                        |
+| `NewPooledUserOperationsHashes`  | ``                        |
 
 
 Bundlers MUST reject (fail validation) messages containing an incorrect type, or invalid payload.
 
-When processing incoming gossip, Bundlers MAY descore or disconnect peers who fail to observe these constraints.
+When processing incoming gossip, Bundlers MAY de-score or disconnect peers who fail to observe these constraints.
 
 For any optional queueing, Bundlers SHOULD maintain maximum queue sizes to avoid DoS vectors.
 
-Gossipsub v1.1 introduces [Extended Validators](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#extended-validators)
-for the application to aid in the gossipsub peer-scoring scheme.
-We utilize `ACCEPT`, `REJECT`, and `IGNORE`. For each gossipsub topic, there are application specific validations.
-If all validations pass, return `ACCEPT`.
-If one or more validations fail while processing the items in order, return either `REJECT` or `IGNORE` as specified in the prefix of the particular condition.
 
 #### Global topics
 
-There are two primary global topics used to propagate beacon blocks (`topic_1`)
-and aggregate attestations (`topic_2`) to all nodes on the network.
+There are two primary global topics used to propagate user operations (`UserOperationWithEntryPoint`)
+and aggregate user operation hashes (`NewPooledUserOperationsHashes`) to all nodes on the network.
 
+##### `UserOperationWithEntryPoint`
 
-##### `NewPooledUserOps`
+The `UserOperationWithEntryPoint` topic is the concatenation of EntryPoint address and UserOperation message serialized using SSZ
 
-The `NewPooledUserOps` topic is used solely for propagating to all the connected nodes on the networks. One or more UserOps that have appeared in the network and which have not yet been included in a block are propagated to a fraction of the nodes connected to the network.
+##### `NewPooledUserOperationsHashes`
+
+The `NewPooledUserOperationsHashes` topic is used solely for propagating to all the connected nodes on the networks. One or more UserOps that have appeared in the network and which have not yet been included in a block are propagated to a fraction of the nodes connected to the network.
 
 
 ##### `GetPooledUserOps`
 
-The `GetPooledUserOps` 
+The `GetPooledUserOps` requests UserOps from the recipients UserOp mempool by hash. The recommended soft limit for GetPooledUserOps requests is 256 hashes (8 KiB). The recipient may enforce an arbitrary limit on the response (size or serving time), which must not be considered a protocol violation.
 
-##### `PooledUserOps`
+##### `PooledUserOperations`
 
-The `PooledUserOps` 
+The `PooledUserOperations` is a response to the `GetPooledUserOps`, returning the requested UserOperations from the local pool. The items in the list are UserOps in the format described in ERC4337 specification. 
 
+#### Container Specifications
+
+The following types are SimpleSerialize (SSZ) containers.
+
+#### `UserOp`
+
+```python
+class UserOp(Container):
+    sender: Address
+    nonce: uint256
+    init_code: bytes
+    call_data: bytes
+    call_gas: uint256
+    verification_gas: uint256
+    pre_verification_gas: uint256
+    max_fee_per_gas: uint256
+    max_priority_fee_per_gas: uint256
+    paymaster: Address
+    paymaster_data: bytes
+    signature: bytes
+```
+
+#### `UserOperationWithEntryPoint`
+
+```python
+class UserOperationWithEntryPoint(Container):
+    entry_point_contract: Address
+    verified_at_block_hash: uint256
+    chain_id: uint256
+    user_operations: List[UserOp, MAX_OPS_PER_SLOT]
+```
+
+#### `UserOperationWithEntryPoint`
+
+```python
+class GetPooledUserOps(Container):
+    
+```
