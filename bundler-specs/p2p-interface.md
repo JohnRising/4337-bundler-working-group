@@ -202,11 +202,16 @@ There are two primary global topics used to propagate beacon blocks (`topic_1`)
 and aggregate attestations (`topic_2`) to all nodes on the network.
 
 
-##### `topic_1`
+##### `NewPooledUserOps`
 
-The `topic_1` topic is used solely for propagating new signed beacon blocks to all nodes on the networks.
+The `NewPooledUserOps` topic is used solely for propagating to all the connected nodes on the networks. One or more UserOps that have appeared in the network and which have not yet been included in a block are propagated to a fraction of the nodes connected to the network.
 
 
-##### `topic_2`
+##### `GetPooledUserOps`
 
-The `topic_2` 
+The `GetPooledUserOps` 
+
+##### `PooledUserOps`
+
+The `PooledUserOps` 
+
