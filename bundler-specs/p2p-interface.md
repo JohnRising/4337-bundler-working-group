@@ -197,7 +197,14 @@ The `GetPooledUserOps` requests UserOps from the recipients UserOp mempool by ha
 
 The `PooledUserOperations` is a response to the `GetPooledUserOps`, returning the requested UserOperations from the local pool. The items in the list are UserOps in the format described in ERC4337 specification. 
 
-#### Container Specifications
+## Constants
+
+| Name                             | Message Type              |
+|----------------------------------|---------------------------|
+| `MAX_OPS_PER_REQUEST`            | `uint64(2**10)` = 1024    |
+
+
+## Container Specifications
 
 The following types are SimpleSerialize (SSZ) containers.
 
@@ -226,12 +233,22 @@ class UserOperationWithEntryPoint(Container):
     entry_point_contract: Address
     verified_at_block_hash: uint256
     chain_id: uint256
-    user_operations: List[UserOp, MAX_OPS_PER_SLOT]
+    user_operations: List[UserOp, MAX_OPS_PER_REQUEST]
 ```
 
-#### `UserOperationWithEntryPoint`
+#### `GetPooledUserOps`
 
 ```python
 class GetPooledUserOps(Container):
-    
+    request_id: uint256
+    chain_id: uint256
+    user_operation_hashes: List[Bytes32, MAX_OPS_PER_REQUEST]
+```
+
+#### `PooledUserOperations`
+
+```python
+class PooledUserOperations(Container):
+    chain_id: uint256
+    user_operations: List[UserOp, MAX_OPS_PER_REQUEST]
 ```
