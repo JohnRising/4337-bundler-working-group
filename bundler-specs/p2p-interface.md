@@ -1,5 +1,7 @@
 # ERC4337 -- Networking
 
+**Notice**: This document is work-in-progress for researchers and implementers.
+
 This document contains the networking specification of the bundler software for ERC4337. 
 
 It consists of four main sections:
@@ -109,40 +111,13 @@ Where
 Bundlers MUST support the [gossipsub v1](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.0.md) libp2p Protocol
 including the [gossipsub v1.1](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md) extension.
 
-**Protocol ID:** `/meshsub/1.1.0`
-
-**Gossipsub Parameters**
-
-The following gossipsub [parameters](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.0.md#parameters) will be used:
-
-- `D` (topic stable mesh target count): 8
-- `D_low` (topic stable mesh low watermark): 6
-- `D_high` (topic stable mesh high watermark): 12
-- `D_lazy` (gossip target): 6
-- `heartbeat_interval` (frequency of heartbeat, seconds): 0.7
-- `fanout_ttl` (ttl for fanout maps for topics we are not subscribed to but have published to, seconds): 60
-- `mcache_len` (number of windows to retain full messages in cache for `IWANT` responses): 6
-- `mcache_gossip` (number of windows to gossip about): 3
-- `seen_ttl` (number of heartbeat intervals to retain message IDs): 550
-
-*Note*: Gossipsub v1.1 introduces a number of
-[additional parameters](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#overview-of-new-parameters)
-for peer scoring and other attack mitigations.
-These are currently under investigation and will be spec'd and released to mainnet when they are ready.
-
 ### Topics and messages
 
 Topics are plain UTF-8 strings and are encoded on the wire as determined by protobuf (gossipsub messages are enveloped in protobuf messages).
 Topic strings have form: `/erc4337/UserOpsWithEntryPoint/Name/Encoding`.
 This defines both the type of data being sent on the topic and how the data field of the message is encoded.
 
-- `UserOpsWithEntryPoint` - the lowercase hex-encoded (no "0x" prefix) bytes of `entry_point_contract_address` + `user_operation` where
-    - `current_fork_version` is the fork version of the epoch of the message to be sent on the topic
-    - `genesis_validators_root` is the static `Root` found in `state.genesis_validators_root`
-- `Name` - see table below
-- `Encoding` - the encoding strategy describes a specific representation of bytes that will be transmitted over the wire.
-  See the [Encodings](#Encodings) section for further details.
-
+- `UserOpsWithEntryPoint` - the lowercase hex-encoded (no "0x" prefix) bytes of `entry_point_contract_address` + `user_operation` 
 
 Each gossipsub [message](https://github.com/libp2p/go-libp2p-pubsub/blob/master/pb/rpc.proto#L17-L24) has a maximum size of `GOSSIP_MAX_SIZE`.
 Bundlers MUST reject (fail validation) messages that are over this size limit.
@@ -191,7 +166,7 @@ The `NewPooledUserOperationsHashes` topic is used solely for propagating to all 
 
 ##### `GetPooledUserOps`
 
-The `GetPooledUserOps` requests UserOps from the recipients UserOp mempool by hash. The recommended soft limit for GetPooledUserOps requests is 256 hashes (8 KiB). The recipient may enforce an arbitrary limit on the response (size or serving time), which must not be considered a protocol violation.
+The `GetPooledUserOps` requests UserOps from the recipients UserOp mempool for a given EntryPoint contract address. The recommended soft limit for GetPooledUserOps requests is 256 hashes (8 KiB). The recipient may enforce an arbitrary limit on the response (size or serving time), which must not be considered a protocol violation.
 
 ##### `PooledUserOperations`
 
@@ -216,13 +191,12 @@ class UserOp(Container):
     nonce: uint256
     init_code: bytes
     call_data: bytes
-    call_gas: uint256
-    verification_gas: uint256
+    call_gas_limit: uint256
+    verification_gas_limit: uint256
     pre_verification_gas: uint256
     max_fee_per_gas: uint256
     max_priority_fee_per_gas: uint256
-    paymaster: Address
-    paymaster_data: bytes
+    paymaster_and_data: bytes
     signature: bytes
 ```
 
@@ -242,7 +216,7 @@ class UserOperationWithEntryPoint(Container):
 class GetPooledUserOps(Container):
     request_id: uint256
     chain_id: uint256
-    user_operation_hashes: List[Bytes32, MAX_OPS_PER_REQUEST]
+    entry_point_address: List[Address, MAX_OPS_PER_REQUEST]
 ```
 
 #### `PooledUserOperations`
@@ -250,5 +224,6 @@ class GetPooledUserOps(Container):
 ```python
 class PooledUserOperations(Container):
     chain_id: uint256
+    entry_point_address: Address
     user_operations: List[UserOp, MAX_OPS_PER_REQUEST]
 ```
